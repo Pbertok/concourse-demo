@@ -2,20 +2,52 @@ resources:
 - name: repo
   type: git
   source:
-    uri: https://github.com/Pbertok/concourse-demo.git
+    # changed uri to ssh format
+    uri: git@github.com:Pbertok/concourse-demo.git
+    # specify branch because it's required for the put step
+    branch: main
+    private_key: |
+      -----BEGIN OPENSSH PRIVATE KEY-----
+      b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABCSdsWc+p
+      cW0NPEXbtncFucAAAAEAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIMQQ3WRLaIlNCO1c
+      28cKmA145PPZmpREtQc8CSi6ntXLAAAAoNkO3cGVOHTfa389TI6rHQdPpyEp9RqwKEKAib
+      hRXgS6U+qvGMUcnO5aMCDTNhe4XVB0CNUBtDVIigSUiXMaEUsdHbVz6ArLZ79hJDYNs1YB
+      TOffxHDJqicc7gL5/EaitXB9sik/hmQhgrtj/MXvl9BLo4NK0XYgm52CYoVzFBmYrSi2E+
+      J8SePtv441Y1Ul2/RsNpkDpje5+a/1Q3fOVzI=
+      -----END OPENSSH PRIVATE KEY-----
+    private_key_passphrase: D01berlD01reb!
 
 jobs:
 - name: hello-world-job
   plan:
   - get: repo
-    trigger: true   # tell Concourse to trigger this job when new versions are emitted
-  - task: hello-world-task
+    trigger: true
+  - task: create-commit # renamed task
     config:
       platform: linux
       image_resource:
         type: registry-image
         source:
-          repository: busybox
+          repository: gitea/gitea # use any image that has the git cli
+      inputs:
+      - name: repo
+      outputs: # Add repo as an output
+      - name: repo
+      params: # Change these to match your ssh key info
+        EMAIL: person@example.com
+        GIT_AUTHOR_NAME: Person Doe
       run:
-        path: echo
-        args: ["Hello World!"]
+        path: sh
+        args:
+        - -cx
+        # this is just a bash script
+        - |
+          cd repo
+          date +%Y-%m-%d > todays-date
+          git add ./todays-date
+          git config --global user.email bertok.peter1987@gmail.com
+          git config --global user.name pbertok
+          git commit -m "Update todays date"
+  - put: repo
+    params:
+      repository: repo
